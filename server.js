@@ -42,10 +42,7 @@ const httpServer = http.createServer((req, res) => {
       firmware: c.firmware || 'Ukendt', connectors: c.connectors || {},
       aktiv_transaktion: c.activeTransaction || null, ocppVersion: c.ocppVersion,
     }));
-    const ocpiLokationer = Object.values(ocpiState.locations).map(loc => ({
-      id: loc.id, name: loc.name, adresse: `${loc.address || ''}, ${loc.city || ''}`,
-      evses: (loc.evses || []).map(e => ({ uid: e.uid, status: e.status })),
-    }));
+    const ocpiLokationer = Object.values(ocpiState.locations);
     return res.end(JSON.stringify({
       ocpp: { ladere, sessioner: Object.values(ocppSessions) },
       ocpi: { lokationer: ocpiLokationer, sessioner: Object.values(ocpiState.sessions) },
