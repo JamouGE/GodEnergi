@@ -128,7 +128,7 @@ function handleOcpi(req, res, url, body) {
       roles: [{ role: 'EMSP', party_id: 'GDE', country_code: 'DK' }]
     }));
 
-  const locMatch = url.match(/^\/ocpi\/2\.2\.1\/receiver\/locations\/([^\/]+)(?:\/evses\/([^\/]+))?/);
+  const locMatch = url.match(/^\/ocpi\/2\.2\.1\/receiver\/locations\/(.+?)(?:\/evses\/([^\/]+))?$/);
   if (locMatch) {
     const [, locationId, evseUid] = locMatch;
     try {
