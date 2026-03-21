@@ -627,6 +627,17 @@
           </div>
         </div>
 
+        <!-- OCPI EVSEs -->
+        <div class="section">
+          <div class="section-header">
+            <span class="section-title">📡 OCPI — ChargEye ladere</span>
+            <span class="section-count" id="ocpiCount">0</span>
+          </div>
+          <div id="ocpiSection">
+            <div class="empty"><div class="empty-icon">📡</div>Ingen OCPI data endnu</div>
+          </div>
+        </div>
+
         <!-- Active sessions -->
         <div class="section">
           <div class="section-header">
@@ -828,17 +839,63 @@ async function refresh() {
     const r = await fetch(`${API}/status`);
     const data = await r.json();
 
-    const ladere = data.ladere || data.ocpp?.ladere || [];
-    const sessioner = data.sessioner || data.ocpp?.sessioner || [];
+    const ocppLadere = data.ocpp?.ladere || [];
+    const ocppSessioner = data.ocpp?.sessioner || [];
+    const ocpiEvses = data.ocpi?.lokationer || [];
 
-    document.getElementById('statOnline').textContent = ladere.length;
-    renderChargers(ladere);
-    renderSessions(sessioner);
+    const totalOcpiCharging = ocpiEvses.filter(e => e.status === 'CHARGING').length;
+    const totalActive = ocppSessioner.filter(s => s.status === 'ACTIVE').length;
+    const totalKwh = ocppSessioner.filter(s => s.status === 'ACTIVE').reduce((s, x) => s + (x.kWh || 0), 0);
+    const totalCompleted = ocppSessioner.filter(s => s.status === 'COMPLETED').length;
+
+    document.getElementById('statOnline').textContent = ocppLadere.length;
+    document.getElementById('statActive').textContent = totalActive || totalOcpiCharging;
+    document.getElementById('statKwh').textContent = totalKwh.toFixed(1);
+    document.getElementById('statCompleted').textContent = totalCompleted;
+    document.getElementById('ocpiCount').textContent = ocpiEvses.length;
+
+    renderChargers(ocppLadere);
+    renderOcpiEvses(ocpiEvses);
+    renderSessions(ocppSessioner);
     document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('da-DK');
 
   } catch (e) {
     document.getElementById('lastUpdate').textContent = 'Serverfejl';
   }
+}
+
+function renderOcpiEvses(evses) {
+  const el = document.getElementById('ocpiSection');
+  if (!el) return;
+  if (!evses.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📡</div>Ingen OCPI data endnu</div>';
+    return;
+  }
+  el.innerHTML = evses.map(e => {
+    const sc = statusClass(e.status);
+    const conn = e.connectors?.[0];
+    const kw = conn ? (conn.max_electric_power / 1000).toFixed(0) : '?';
+    const isCharging = e.status === 'CHARGING';
+    return `
+    <div class="charger-card">
+      <div class="charger-header">
+        <div>
+          <div class="charger-id">${e.evse_id || e.uid}</div>
+          <div class="charger-meta">CCS2 · ${kw} kW DC · ref ${e.physical_reference || '?'}</div>
+        </div>
+        <div class="charger-status online">
+          <div style="width:6px;height:6px;border-radius:50%;background:currentColor;${isCharging ? 'animation:pulse 1s infinite' : ''}"></div>
+          ${isCharging ? 'Lader' : e.status === 'AVAILABLE' ? 'Ledig' : e.status}
+        </div>
+      </div>
+      <div class="connectors">
+        <div class="connector ${sc}">
+          <div class="connector-dot"></div>
+          ${e.status}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 refresh();
