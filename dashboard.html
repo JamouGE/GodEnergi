@@ -828,8 +828,8 @@ async function refresh() {
     const r = await fetch(`${API}/status`);
     const data = await r.json();
 
-    const ladere = data.ladere || [];
-    const sessioner = data.sessioner || [];
+    const ladere = data.ladere || data.ocpp?.ladere || [];
+    const sessioner = data.sessioner || data.ocpp?.sessioner || [];
 
     document.getElementById('statOnline').textContent = ladere.length;
     renderChargers(ladere);
