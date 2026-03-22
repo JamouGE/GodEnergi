@@ -53,6 +53,71 @@ function locationFromEvseId(evseId) {
   return evseId.split('*')[0] || evseId;
 }
 
+// ─── OCPI Pull — hent data fra ChargEye ved opstart ─────────────────────────────
+async function pullFromChargeEye() {
+  if (!chargeEye.token || !chargeEye.versionsUrl) return;
+  console.log('[OCPI PULL] Henter data fra ChargEye...');
+
+  try {
+    // Hent version detail for at finde locations + sessions endpoints
+    const versionData = await ocpiGet(chargeEye.versionsUrl);
+    const versions = versionData?.data || [];
+    const v221 = versions.find(v => v.version === '2.2.1') || versions[0];
+    if (!v221) return console.log('[OCPI PULL] Ingen 2.2.1 version fundet');
+
+    const detailData = await ocpiGet(v221.url);
+    const endpoints = detailData?.data?.endpoints || [];
+
+    // Find locations endpoint (SENDER rolle hos ChargEye = de ejer data)
+    const locEndpoint = endpoints.find(e => e.identifier === 'locations' && e.role === 'SENDER');
+    const sesEndpoint = endpoints.find(e => e.identifier === 'sessions' && e.role === 'SENDER');
+
+    if (locEndpoint) {
+      try {
+        const locData = await ocpiGet(locEndpoint.url);
+        const locations = locData?.data || [];
+        console.log(`[OCPI PULL] Modtaget ${locations.length} lokationer`);
+        locations.forEach(loc => {
+          (loc.evses || []).forEach(evse => {
+            ocpiLocations[evse.uid] = { ...evse, updated_at: new Date() };
+            console.log(`[OCPI PULL] EVSE ${evse.evse_id || evse.uid}: ${evse.status}`);
+          });
+        });
+      } catch (e) { console.log('[OCPI PULL] Locations fejl:', e.message); }
+    } else {
+      // Prøv direkte locations URL
+      try {
+        const base = chargeEye.versionsUrl.replace('/versions', '');
+        const locData = await ocpiGet(`${base}/2.2.1/cpo/locations`);
+        const locations = locData?.data || [];
+        locations.forEach(loc => {
+          (loc.evses || []).forEach(evse => {
+            ocpiLocations[evse.uid] = { ...evse, updated_at: new Date() };
+          });
+        });
+        console.log(`[OCPI PULL] ${locations.length} lokationer via direkte URL`);
+      } catch {}
+    }
+
+    if (sesEndpoint) {
+      try {
+        const sesData = await ocpiGet(sesEndpoint.url);
+        const sesses = sesData?.data || [];
+        console.log(`[OCPI PULL] Modtaget ${sesses.length} sessioner`);
+        sesses.forEach(s => {
+          if (s.status === 'ACTIVE') {
+            ocpiSessions[s.id] = { ...s, _id: s.id, updated_at: new Date() };
+            console.log(`[OCPI PULL] Session ${s.id}: ${s.status} ${s.kwh} kWh`);
+          }
+        });
+      } catch (e) { console.log('[OCPI PULL] Sessions fejl:', e.message); }
+    }
+
+  } catch (e) {
+    console.log('[OCPI PULL] Fejl:', e.message);
+  }
+}
+
 // ─── OCPI → ChargEye commands ─────────────────────────────────────────────────
 async function fetchChargeEyeEndpoints() {
   if (!chargeEye.versionsUrl || !chargeEye.token) return;
@@ -471,7 +536,7 @@ function handleOcpi(req, res, url, body) {
         chargeEye.token = d.token;
         chargeEye.versionsUrl = d.url;
         console.log('[OCPI] ✅ ChargEye token gemt! Henter endpoints...');
-        fetchChargeEyeEndpoints();
+        fetchChargeEyeEndpoints().then(() => pullFromChargeEye());
       }
     }
     return res.end(ocpiOk({
@@ -739,5 +804,7 @@ httpServer.listen(PORT, () => {
   console.log(`   Dashboard: http://localhost:${PORT}/`);
   console.log(`   Status:    http://localhost:${PORT}/status`);
   console.log(`   TOKEN_A:   ${OCPI_TOKEN_A}\n`);
-  if (chargeEye.token) { console.log('[OCPI] ChargEye token fra env — henter endpoints...'); fetchChargeEyeEndpoints(); }
+  if (chargeEye.token) { console.log('[OCPI] ChargEye token fra env — henter endpoints...'); fetchChargeEyeEndpoints().then(() => pullFromChargeEye()); }
+  // Periodisk pull hvert 5. minut som backup
+  setInterval(() => { if (chargeEye.token) pullFromChargeEye(); }, 5 * 60 * 1000);
 });
