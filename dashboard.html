@@ -855,6 +855,7 @@ async function refresh() {
     document.getElementById('ocpiCount').textContent = ocpiEvses.length;
 
     renderChargers(ocppLadere);
+    window._ocpiSessions = data.ocpi?.sessioner || [];
     renderOcpiEvses(ocpiEvses);
     renderSessions(ocppSessioner);
     document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('da-DK');
@@ -876,16 +877,21 @@ function renderOcpiEvses(evses) {
     const conn = e.connectors?.[0];
     const kw = conn ? (conn.max_electric_power / 1000).toFixed(0) : '?';
     const isCharging = e.status === 'CHARGING';
+    // Find matching session
+    const session = (window._ocpiSessions || []).find(s => s.evse_uid === e.uid);
+    const vehicle = session?.custom?.vehicle?.model || '';
+    const kwh = session?.kwh?.toFixed(2) || null;
+    const soc = session?.charging_periods?.flatMap(p => p.dimensions).find(d => d.type === 'STATE_OF_CHARGE')?.volume;
     return `
     <div class="charger-card">
       <div class="charger-header">
         <div>
           <div class="charger-id">${e.evse_id || e.uid}</div>
-          <div class="charger-meta">CCS2 · ${kw} kW DC · ref ${e.physical_reference || '?'}</div>
+          <div class="charger-meta">CCS2 · ${kw} kW DC${vehicle ? ' · ' + vehicle : ''}</div>
         </div>
         <div class="charger-status online">
           <div style="width:6px;height:6px;border-radius:50%;background:currentColor;${isCharging ? 'animation:pulse 1s infinite' : ''}"></div>
-          ${isCharging ? 'Lader' : e.status === 'AVAILABLE' ? 'Ledig' : e.status}
+          ${isCharging ? 'Lader' : e.status === 'AVAILABLE' ? 'Ledig' : e.status === 'OUTOFORDER' ? 'Offline' : e.status}
         </div>
       </div>
       <div class="connectors">
@@ -893,6 +899,8 @@ function renderOcpiEvses(evses) {
           <div class="connector-dot"></div>
           ${e.status}
         </div>
+        ${kwh ? `<div class="connector available"><div class="connector-dot"></div>${kwh} kWh</div>` : ''}
+        ${soc != null ? `<div class="connector ${soc >= 100 ? 'available' : 'charging'}"><div class="connector-dot"></div>SOC ${soc}%</div>` : ''}
       </div>
     </div>`;
   }).join('');
