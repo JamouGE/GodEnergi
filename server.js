@@ -75,6 +75,31 @@ const httpServer = http.createServer((req, res) => {
     return res.end(JSON.stringify({ besked: `Stop sendt til ${chargerId}` }));
   }
 
+  // Remote restart
+  if (url.startsWith('/restart/')) {
+    res.setHeader('Content-Type', 'application/json');
+    const parts = url.split('/');
+    const chargerId = parts[2];
+    const type = parts[3] || 'soft';
+    const charger = ocppChargers[chargerId];
+    if (!charger) return res.end(JSON.stringify({ error: 'Lader ikke fundet' }));
+    sendToCharger(chargerId, 'Reset', { type: type === 'hard' ? 'Hard' : 'Soft' });
+    return res.end(JSON.stringify({ besked: 'Restart sendt til ' + chargerId }));
+  }
+
+  // Change availability
+  if (url.startsWith('/availability/')) {
+    res.setHeader('Content-Type', 'application/json');
+    const parts = url.split('/');
+    const chargerId = parts[2];
+    const connectorId = parseInt(parts[3]) || 0;
+    const type = parts[4] || 'Operative';
+    const charger = ocppChargers[chargerId];
+    if (!charger) return res.end(JSON.stringify({ error: 'Lader ikke fundet' }));
+    sendToCharger(chargerId, 'ChangeAvailability', { connectorId, type });
+    return res.end(JSON.stringify({ besked: 'Tilgængelighed sat til ' + type }));
+  }
+
   // OCPI endpoints
   if (url.startsWith('/ocpi')) {
     const header = req.headers['authorization'] || '';
