@@ -160,6 +160,19 @@ body{font-family:'Inter',sans-serif;background:#f0f0ed;color:#1a1a18;font-size:1
 .modal-footer .btn.primary-solid{background:#1a1a18;color:#fff;border-color:#1a1a18}
 .modal-footer .btn.primary-solid:hover{background:#2a2a28}
 
+/* Location group */
+.loc-group{border-bottom:1px solid #f0f0ec}
+.loc-group:last-child{border-bottom:none}
+.loc-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#fafaf8;cursor:pointer;user-select:none}
+.loc-name{font-size:12px;font-weight:600;color:#374151}
+.loc-badges{display:flex;gap:4px;align-items:center}
+.loc-body{padding:0 14px 10px}
+.loc-evse-row{display:grid;grid-template-columns:1fr 1fr auto auto auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #f5f5f2}
+.loc-evse-row:last-child{border-bottom:none}
+.loc-evse-id{font-family:ui-monospace,monospace;font-size:11px;color:#374151;font-weight:500}
+.loc-evse-meta{font-size:10px;color:#aaa}
+.loc-actions{display:flex;gap:4px}
+
 /* Empty */
 .empty{padding:32px 14px;text-align:center;color:#bbb;font-size:12px}
 
@@ -255,6 +268,15 @@ body{font-family:'Inter',sans-serif;background:#f0f0ed;color:#1a1a18;font-size:1
               <tbody id="ocpiBody"><tr><td colspan="7" class="empty">Ingen OCPI data</td></tr></tbody>
             </table>
           </div>
+        </div>
+
+        <!-- OCPI Locations -->
+        <div class="card" id="locationsCard">
+          <div class="card-head">
+            <span class="card-title">Lokationer</span>
+            <span class="card-meta" id="locMeta">0 lokationer</span>
+          </div>
+          <div id="locationsList"><div class="empty">Ingen lokationer</div></div>
         </div>
 
         <!-- Active OCPI sessions -->
@@ -651,6 +673,75 @@ function renderChart(evses, sessions) {
   });
 }
 
+// ── Render locations ──────────────────────────────────────────────────────────
+function renderLocations(lokationer) {
+  document.getElementById('locMeta').textContent = `${lokationer.length} lokationer`;
+  const el = document.getElementById('locationsList');
+  if (!lokationer.length) { el.innerHTML = '<div class="empty">Ingen lokationer</div>'; return; }
+
+  el.innerHTML = lokationer.map(loc => {
+    const chargingCount = loc.evses.filter(e => e.status === 'CHARGING' || e.status === 'OCCUPIED').length;
+    const availCount = loc.evses.filter(e => e.status === 'AVAILABLE').length;
+    const sessCount = loc.sessions.filter(s => s.status === 'ACTIVE').length;
+    const totalKwh = loc.sessions.filter(s => s.status === 'ACTIVE').reduce((s, x) => s + (x.kwh || 0), 0);
+
+    const evseRows = loc.evses.map(e => {
+      const sess = loc.sessions.find(s => s.evse_uid === e.uid && s.status === 'ACTIVE');
+      const vehicle = sess?.custom?.vehicle?.model || '';
+      const kwh = sess ? (sess.kwh || 0).toFixed(1) : '';
+      const allDims = sess?.charging_periods?.flatMap(p => p.dimensions) || [];
+      const socEntry = [...allDims].reverse().find(d => d.type === 'STATE_OF_CHARGE');
+      const soc = socEntry ? Math.round(socEntry.volume) : null;
+      const sessionId = sess?._id || sess?.id;
+      const locationId = e.evse_id?.split('-').slice(1,-1).join('-').replace(/-\d+$/, '') || 'Udlej';
+
+      return `<div class="loc-evse-row">
+        <div>
+          <div class="loc-evse-id">${e.evse_id || e.uid}</div>
+          ${vehicle ? `<div class="loc-evse-meta">${vehicle}${soc !== null ? ` · SOC ${soc}%` : ''}</div>` : ''}
+        </div>
+        <div>${kwh ? `<span style="font-weight:600;font-size:12px">${kwh} kWh</span>` : '<span style="color:#bbb;font-size:11px">—</span>'}</div>
+        <span class="pill ${sc(e.status)}"><span class="pill-dot"></span>${sl(e.status||'')}</span>
+        <div class="loc-actions">
+          ${sess ? `<button class="btn danger" style="font-size:10px;padding:3px 7px" onclick="ocpiCmd('stop','${sessionId}','${e.evse_id}')">■ Stop</button>` : 
+                   `<button class="btn" style="font-size:10px;padding:3px 7px" onclick="ocpiCmd('start','${e.uid}','${e.evse_id}','${locationId}')">▶ Start</button>`}
+          <button class="btn" style="font-size:10px;padding:3px 7px" onclick="ocpiCmd('unlock','${e.uid}','${e.evse_id}','${locationId}')">🔓</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<div class="loc-group">
+      <div class="loc-header" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+        <span class="loc-name">${loc.name}</span>
+        <div class="loc-badges">
+          ${chargingCount ? `<span class="pill charging"><span class="pill-dot"></span>${chargingCount} lader</span>` : ''}
+          ${availCount ? `<span class="pill available"><span class="pill-dot"></span>${availCount} ledig</span>` : ''}
+          ${sessCount ? `<span style="font-size:10px;color:#B45309;margin-left:4px">${totalKwh.toFixed(1)} kWh</span>` : ''}
+          <span style="font-size:10px;color:#aaa;margin-left:4px">▾</span>
+        </div>
+      </div>
+      <div class="loc-body">${evseRows || '<div style="padding:8px 0;color:#bbb;font-size:11px">Ingen EVSEs</div>'}</div>
+    </div>`;
+  }).join('');
+}
+
+async function ocpiCmd(action, id1, id2, locationId) {
+  try {
+    let url, body;
+    if (action === 'stop') {
+      url = '/ocpi-cmd/stop'; body = { sessionId: id1 };
+    } else if (action === 'start') {
+      url = '/ocpi-cmd/start'; body = { evseUid: id1, locationId: locationId || 'Udlej' };
+    } else if (action === 'unlock') {
+      const connId = id2?.split('*')[1] || '11';
+      url = '/ocpi-cmd/unlock'; body = { evseUid: id1, locationId: locationId || 'Udlej', connectorId: connId };
+    }
+    const d = await api(url, 'POST', body);
+    toast(d.result?.result || d.result?.status || 'Kommando sendt', !d.error);
+    if (d.error) toast(d.error, false);
+  } catch (e) { toast('OCPI fejl — tjek ChargEye forbindelsen', false); }
+}
+
 // ── Main refresh ───────────────────────────────────────────────────────────────
 async function refresh() {
   try {
@@ -665,6 +756,7 @@ async function refresh() {
 
     renderChargers(ocppLadere);
     renderOcpi(ocpiEvses, ocpiSessioner);
+    renderLocations(data.ocpi?.lokationer || []);
     renderAlarms(alarmer);
     renderHistory(allSessioner);
     renderChart(ocpiEvses, ocpiSessioner);
