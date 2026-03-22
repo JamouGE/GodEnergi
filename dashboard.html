@@ -4,651 +4,242 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GodEnergi — Charge Control</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-  :root {
-    --bg: #0a0c0f;
-    --surface: #111318;
-    --surface2: #181c24;
-    --border: #1e2530;
-    --border2: #252d3a;
-    --green: #00e87a;
-    --green-dim: rgba(0,232,122,0.12);
-    --amber: #f5a623;
-    --amber-dim: rgba(245,166,35,0.12);
-    --red: #ff4757;
-    --red-dim: rgba(255,71,87,0.12);
-    --blue: #3d8bff;
-    --blue-dim: rgba(61,139,255,0.12);
-    --text: #e8edf5;
-    --text2: #7a8699;
-    --text3: #3d4a5c;
-    --mono: 'Space Mono', monospace;
-    --sans: 'DM Sans', sans-serif;
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  /* Grid background */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(0,232,122,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,232,122,0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .app { position: relative; z-index: 1; }
-
-  /* Header */
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px 32px;
-    border-bottom: 1px solid var(--border);
-    background: rgba(10,12,15,0.95);
-    backdrop-filter: blur(12px);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .logo-icon {
-    width: 32px;
-    height: 32px;
-    background: var(--green);
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-  }
-
-  .logo-text {
-    font-family: var(--mono);
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    color: var(--text);
-  }
-
-  .logo-sub {
-    font-size: 10px;
-    color: var(--text2);
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    margin-top: 1px;
-  }
-
-  .header-right {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-  }
-
-  .live-badge {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--green);
-    letter-spacing: 0.05em;
-  }
-
-  .live-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--green);
-    animation: pulse 2s infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(0.8); }
-  }
-
-  .last-update {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--text3);
-  }
-
-  /* Main layout */
-  main {
-    padding: 28px 32px;
-    max-width: 1400px;
-    margin: 0 auto;
-  }
-
-  /* Stats bar */
-  .stats-bar {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-    margin-bottom: 28px;
-  }
-
-  .stat-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 18px 20px;
-    position: relative;
-    overflow: hidden;
-    transition: border-color 0.2s;
-  }
-
-  .stat-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-  }
-
-  .stat-card.green::before { background: var(--green); }
-  .stat-card.amber::before { background: var(--amber); }
-  .stat-card.blue::before { background: var(--blue); }
-  .stat-card.red::before { background: var(--red); }
-
-  .stat-label {
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--text2);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    margin-bottom: 10px;
-  }
-
-  .stat-value {
-    font-family: var(--mono);
-    font-size: 28px;
-    font-weight: 700;
-    line-height: 1;
-  }
-
-  .stat-card.green .stat-value { color: var(--green); }
-  .stat-card.amber .stat-value { color: var(--amber); }
-  .stat-card.blue .stat-value { color: var(--blue); }
-  .stat-card.red .stat-value { color: var(--text); }
-
-  .stat-sub {
-    font-size: 12px;
-    color: var(--text3);
-    margin-top: 6px;
-  }
-
-  /* Grid */
-  .grid {
-    display: grid;
-    grid-template-columns: 1fr 380px;
-    gap: 20px;
-  }
-
-  /* Section */
-  .section {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-    margin-bottom: 20px;
-  }
-
-  .section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .section-title {
-    font-family: var(--mono);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--text2);
-  }
-
-  .section-count {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--text3);
-  }
-
-  /* Charger card */
-  .charger-card {
-    padding: 20px;
-    border-bottom: 1px solid var(--border);
-    transition: background 0.15s;
-  }
-
-  .charger-card:last-child { border-bottom: none; }
-  .charger-card:hover { background: var(--surface2); }
-
-  .charger-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    margin-bottom: 16px;
-  }
-
-  .charger-id {
-    font-family: var(--mono);
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text);
-  }
-
-  .charger-meta {
-    font-size: 12px;
-    color: var(--text2);
-    margin-top: 3px;
-  }
-
-  .charger-status {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    font-weight: 600;
-    padding: 4px 10px;
-    border-radius: 20px;
-    letter-spacing: 0.05em;
-  }
-
-  .charger-status.online {
-    background: var(--green-dim);
-    color: var(--green);
-    border: 1px solid rgba(0,232,122,0.2);
-  }
-
-  .charger-status.offline {
-    background: var(--red-dim);
-    color: var(--red);
-    border: 1px solid rgba(255,71,87,0.2);
-  }
-
-  /* Connectors grid */
-  .connectors {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-
-  .connector {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 7px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--border2);
-    font-size: 12px;
-    font-family: var(--mono);
-    transition: all 0.2s;
-    cursor: default;
-  }
-
-  .connector.available {
-    background: var(--green-dim);
-    border-color: rgba(0,232,122,0.2);
-    color: var(--green);
-  }
-
-  .connector.charging {
-    background: var(--amber-dim);
-    border-color: rgba(245,166,35,0.3);
-    color: var(--amber);
-    animation: chargePulse 2s infinite;
-  }
-
-  @keyframes chargePulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(245,166,35,0); }
-    50% { box-shadow: 0 0 0 4px rgba(245,166,35,0.1); }
-  }
-
-  .connector.unavailable, .connector.faulted {
-    background: var(--red-dim);
-    border-color: rgba(255,71,87,0.2);
-    color: var(--red);
-  }
-
-  .connector.preparing, .connector.finishing {
-    background: var(--blue-dim);
-    border-color: rgba(61,139,255,0.2);
-    color: var(--blue);
-  }
-
-  .connector-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-  }
-
-  .connector.charging .connector-dot {
-    animation: pulse 1s infinite;
-  }
-
-  /* Action buttons */
-  .charger-actions {
-    display: flex;
-    gap: 8px;
-  }
-
-  .btn {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 7px 14px;
-    border-radius: 7px;
-    font-family: var(--sans);
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    border: none;
-    transition: all 0.15s;
-  }
-
-  .btn-start {
-    background: var(--green-dim);
-    color: var(--green);
-    border: 1px solid rgba(0,232,122,0.25);
-  }
-
-  .btn-start:hover {
-    background: rgba(0,232,122,0.2);
-    border-color: rgba(0,232,122,0.4);
-  }
-
-  .btn-stop {
-    background: var(--red-dim);
-    color: var(--red);
-    border: 1px solid rgba(255,71,87,0.25);
-  }
-
-  .btn-stop:hover {
-    background: rgba(255,71,87,0.2);
-    border-color: rgba(255,71,87,0.4);
-  }
-
-  .btn:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-  }
-
-  /* Sessions */
-  .session-item {
-    padding: 14px 20px;
-    border-bottom: 1px solid var(--border);
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 12px;
-    align-items: center;
-    transition: background 0.15s;
-  }
-
-  .session-item:last-child { border-bottom: none; }
-  .session-item:hover { background: var(--surface2); }
-
-  .session-id {
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--text3);
-    margin-bottom: 4px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 200px;
-  }
-
-  .session-info {
-    font-size: 13px;
-    color: var(--text);
-    font-weight: 500;
-  }
-
-  .session-meta {
-    font-size: 11px;
-    color: var(--text2);
-    margin-top: 2px;
-  }
-
-  .session-kwh {
-    font-family: var(--mono);
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--amber);
-    text-align: right;
-    white-space: nowrap;
-  }
-
-  .session-kwh span {
-    font-size: 11px;
-    color: var(--text3);
-    font-weight: 400;
-  }
-
-  .session-status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 10px;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 10px;
-    letter-spacing: 0.05em;
-    margin-top: 4px;
-  }
-
-  .session-status-badge.active {
-    background: var(--amber-dim);
-    color: var(--amber);
-    border: 1px solid rgba(245,166,35,0.2);
-  }
-
-  .session-status-badge.completed {
-    background: rgba(122,134,153,0.1);
-    color: var(--text2);
-    border: 1px solid var(--border2);
-  }
-
-  /* Empty state */
-  .empty {
-    padding: 40px 20px;
-    text-align: center;
-    color: var(--text3);
-    font-size: 13px;
-  }
-
-  .empty-icon { font-size: 32px; margin-bottom: 10px; opacity: 0.4; }
-
-  /* Right column */
-  .right-col { display: flex; flex-direction: column; gap: 20px; }
-
-  /* History table */
-  .history-item {
-    padding: 12px 20px;
-    border-bottom: 1px solid var(--border);
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 8px;
-    align-items: center;
-  }
-
-  .history-item:last-child { border-bottom: none; }
-
-  .history-charger {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--text2);
-    margin-bottom: 2px;
-  }
-
-  .history-time {
-    font-size: 11px;
-    color: var(--text3);
-  }
-
-  .history-kwh {
-    font-family: var(--mono);
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--text);
-    text-align: right;
-  }
-
-  /* Toast */
-  .toast {
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    background: var(--surface2);
-    border: 1px solid var(--border2);
-    border-radius: 10px;
-    padding: 14px 18px;
-    font-size: 13px;
-    color: var(--text);
-    z-index: 1000;
-    transform: translateY(80px);
-    opacity: 0;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    max-width: 320px;
-  }
-
-  .toast.show {
-    transform: translateY(0);
-    opacity: 1;
-  }
-
-  /* Scrollbar */
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: var(--bg); }
-  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
-
-  /* Offline overlay */
-  .server-offline {
-    text-align: center;
-    padding: 60px 20px;
-    color: var(--text2);
-  }
-
-  .server-offline h2 {
-    font-family: var(--mono);
-    font-size: 16px;
-    color: var(--red);
-    margin-bottom: 8px;
-  }
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:#f5f5f3;color:#1a1a18;font-size:13px;min-height:100vh}
+a{color:inherit;text-decoration:none}
+
+/* Sidebar */
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:48px;background:#1a1a18;display:flex;flex-direction:column;align-items:center;padding:12px 0;z-index:100;gap:4px}
+.sidebar-logo{width:32px;height:32px;background:#E8521A;border-radius:6px;display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+.sidebar-logo svg{width:18px;height:18px;fill:white}
+.sidebar-item{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#888;transition:all 0.15s}
+.sidebar-item:hover{background:#2a2a28;color:#fff}
+.sidebar-item.active{background:#E8521A;color:#fff}
+.sidebar-item svg{width:16px;height:16px}
+
+/* Layout */
+.main{margin-left:48px;display:flex;flex-direction:column;min-height:100vh}
+
+/* Topbar */
+.topbar{height:48px;background:#fff;border-bottom:1px solid #e8e8e4;display:flex;align-items:center;padding:0 20px;gap:16px;position:sticky;top:0;z-index:50}
+.topbar-title{font-size:13px;font-weight:500;color:#1a1a18}
+.topbar-sub{font-size:12px;color:#888;margin-left:4px}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#1A7A3C;animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.4}}
+.live-label{font-size:11px;color:#1A7A3C;font-weight:500}
+.last-updated{font-size:11px;color:#aaa}
+
+/* Content */
+.content{padding:20px;flex:1}
+
+/* Stat row */
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:#fff;border:1px solid #e8e8e4;border-radius:8px;padding:14px 16px}
+.stat-label{font-size:11px;font-weight:500;color:#888;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:8px}
+.stat-value{font-size:22px;font-weight:600;color:#1a1a18;line-height:1}
+.stat-sub{font-size:11px;color:#aaa;margin-top:4px}
+.stat-card.has-alert .stat-value{color:#E8521A}
+
+/* Tab bar */
+.tab-bar{display:flex;gap:0;border-bottom:1px solid #e8e8e4;margin-bottom:20px}
+.tab{padding:8px 16px;font-size:12px;font-weight:500;color:#888;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all 0.15s}
+.tab:hover{color:#1a1a18}
+.tab.active{color:#1a1a18;border-bottom-color:#1a1a18}
+
+/* Main grid */
+.grid{display:grid;grid-template-columns:1fr 340px;gap:16px}
+
+/* Section */
+.section{background:#fff;border:1px solid #e8e8e4;border-radius:8px;overflow:hidden;margin-bottom:16px}
+.section-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #e8e8e4}
+.section-title{font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#888}
+.section-count{font-size:11px;color:#aaa}
+
+/* Table */
+.data-table{width:100%;border-collapse:collapse}
+.data-table th{font-size:11px;font-weight:500;color:#888;text-align:left;padding:8px 16px;border-bottom:1px solid #e8e8e4;white-space:nowrap}
+.data-table td{padding:10px 16px;border-bottom:1px solid #f0f0ec;vertical-align:middle}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:#fafaf8}
+
+/* Status pill */
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap}
+.pill-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.pill.charging{background:#EAF5EE;color:#1A7A3C}
+.pill.available{background:#E8F4FD;color:#1565C0}
+.pill.suspended{background:#FFF8E1;color:#856404}
+.pill.unavailable,.pill.faulted,.pill.outoforder{background:#FEF0EA;color:#E8521A}
+.pill.offline{background:#f5f5f3;color:#888}
+
+/* Charger row */
+.charger-row{padding:14px 16px;border-bottom:1px solid #f0f0ec;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;cursor:pointer;transition:background 0.1s}
+.charger-row:last-child{border-bottom:none}
+.charger-row:hover{background:#fafaf8}
+.charger-icon{width:36px;height:36px;border-radius:8px;background:#f5f5f3;border:1px solid #e8e8e4;display:flex;align-items:center;justify-content:center}
+.charger-icon svg{width:18px;height:18px;color:#888}
+.charger-id{font-size:13px;font-weight:500;color:#1a1a18}
+.charger-meta{font-size:11px;color:#aaa;margin-top:2px}
+.connectors-wrap{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.conn-badge{width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600}
+.conn-badge.charging{background:#EAF5EE;color:#1A7A3C}
+.conn-badge.available{background:#E8F4FD;color:#1565C0}
+.conn-badge.suspended{background:#FFF8E1;color:#856404}
+.conn-badge.faulted,.conn-badge.unavailable{background:#FEF0EA;color:#E8521A}
+.conn-badge.offline{background:#f5f5f3;color:#aaa}
+.charger-actions{display:flex;gap:6px}
+.btn-sm{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid #e8e8e4;background:#fff;color:#1a1a18;transition:all 0.1s;font-family:inherit}
+.btn-sm:hover{background:#f5f5f3}
+.btn-sm.danger{border-color:#E8521A;color:#E8521A}
+.btn-sm.danger:hover{background:#FEF0EA}
+.btn-sm:disabled{opacity:0.4;cursor:not-allowed}
+
+/* Session item */
+.session-item{padding:12px 16px;border-bottom:1px solid #f0f0ec;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start}
+.session-item:last-child{border-bottom:none}
+.session-evse{font-size:11px;color:#aaa;margin-bottom:2px;font-family:monospace}
+.session-vehicle{font-size:13px;font-weight:500;color:#1a1a18}
+.session-time{font-size:11px;color:#aaa;margin-top:2px}
+.session-kwh{font-size:16px;font-weight:600;color:#1a1a18;text-align:right;white-space:nowrap}
+.session-kwh-unit{font-size:11px;color:#aaa;font-weight:400}
+.session-soc{font-size:11px;color:#1A7A3C;font-weight:500;text-align:right;margin-top:2px}
+
+/* Empty */
+.empty{padding:40px 20px;text-align:center;color:#aaa;font-size:12px}
+
+/* Right col */
+.right-col{display:flex;flex-direction:column;gap:16px}
+
+/* Connectivity badge */
+.conn-status{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500}
+.conn-status.online{color:#1A7A3C}
+.conn-status.offline{color:#E8521A}
+
+/* History */
+.hist-item{padding:10px 16px;border-bottom:1px solid #f0f0ec;display:flex;justify-content:space-between;align-items:center}
+.hist-item:last-child{border-bottom:none}
+.hist-evse{font-size:11px;color:#aaa;margin-bottom:1px;font-family:monospace}
+.hist-vehicle{font-size:12px;font-weight:500;color:#1a1a18}
+.hist-time{font-size:11px;color:#aaa}
+.hist-kwh{font-size:13px;font-weight:600;color:#1a1a18}
+
+/* Mini chart */
+.mini-chart-wrap{padding:16px}
+
+/* Scrollable */
+.scrollable{max-height:400px;overflow-y:auto}
+.scrollable::-webkit-scrollbar{width:4px}
+.scrollable::-webkit-scrollbar-thumb{background:#e8e8e4;border-radius:2px}
 </style>
 </head>
 <body>
-<div class="app">
-  <header>
-    <div class="logo">
-      <div class="logo-icon">⚡</div>
-      <div>
-        <div class="logo-text">GODENERG I</div>
-        <div class="logo-sub">Charge Control</div>
-      </div>
-    </div>
-    <div class="header-right">
-      <div class="live-badge">
-        <div class="live-dot"></div>
-        LIVE
-      </div>
-      <div class="last-update" id="lastUpdate">—</div>
-    </div>
-  </header>
 
-  <main>
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+  </div>
+  <div class="sidebar-item active" title="Dashboard">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+  </div>
+  <div class="sidebar-item" title="Ladere">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 18H3a2 2 0 01-2-2V8a2 2 0 012-2h3.19M15 6h2a2 2 0 012 2v8a2 2 0 01-2 2h-2M9 2v4M15 2v4M11 15h2M9 6h6v4l-2 2H11L9 10V6z"/></svg>
+  </div>
+  <div class="sidebar-item" title="Sessioner">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+  </div>
+  <div class="sidebar-item" title="Alarmer">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
+  </div>
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <div>
+      <span class="topbar-title">GodEnergi</span>
+      <span class="topbar-sub">Charge Control</span>
+    </div>
+    <div class="topbar-right">
+      <div class="live-dot"></div>
+      <span class="live-label">Live</span>
+      <span class="last-updated" id="lastUpdate">—</span>
+    </div>
+  </div>
+
+  <div class="content">
     <!-- Stats -->
-    <div class="stats-bar">
-      <div class="stat-card green">
+    <div class="stat-row">
+      <div class="stat-card">
         <div class="stat-label">Ladere online</div>
         <div class="stat-value" id="statOnline">0</div>
-        <div class="stat-sub">forbundne lige nu</div>
+        <div class="stat-sub">OCPP forbundet</div>
       </div>
-      <div class="stat-card amber">
-        <div class="stat-label">Aktive sessioner</div>
-        <div class="stat-value" id="statActive">0</div>
-        <div class="stat-sub">lader lige nu</div>
+      <div class="stat-card">
+        <div class="stat-label">Lader nu</div>
+        <div class="stat-value" id="statCharging">0</div>
+        <div class="stat-sub">aktive connectors</div>
       </div>
-      <div class="stat-card blue">
-        <div class="stat-label">kWh i dag</div>
+      <div class="stat-card">
+        <div class="stat-label">kWh aktive sessioner</div>
         <div class="stat-value" id="statKwh">0</div>
-        <div class="stat-sub">fra aktive sessioner</div>
+        <div class="stat-sub">via OCPI</div>
       </div>
-      <div class="stat-card red">
-        <div class="stat-label">Afsluttede</div>
-        <div class="stat-value" id="statCompleted">0</div>
-        <div class="stat-sub">sessioner total</div>
+      <div class="stat-card">
+        <div class="stat-label">OCPI EVSEs</div>
+        <div class="stat-value" id="statEvses">0</div>
+        <div class="stat-sub">fra ChargEye</div>
       </div>
     </div>
 
+    <!-- Main grid -->
     <div class="grid">
-      <!-- Left column -->
       <div class="left-col">
 
-        <!-- Chargers -->
+        <!-- OCPP Chargers -->
         <div class="section">
-          <div class="section-header">
-            <span class="section-title">⚡ Ladere</span>
-            <span class="section-count" id="chargerCount">0 online</span>
+          <div class="section-head">
+            <span class="section-title">OCPP — Ladere</span>
+            <span class="section-count" id="ocppCount">0 online</span>
           </div>
-          <div id="chargerList">
-            <div class="empty">
-              <div class="empty-icon">🔌</div>
-              Ingen ladere forbundet endnu
-            </div>
+          <div id="chargerList" class="scrollable">
+            <div class="empty">Ingen ladere forbundet</div>
           </div>
         </div>
 
         <!-- OCPI EVSEs -->
         <div class="section">
-          <div class="section-header">
-            <span class="section-title">📡 OCPI — ChargEye ladere</span>
-            <span class="section-count" id="ocpiCount">0</span>
+          <div class="section-head">
+            <span class="section-title">OCPI — ChargEye EVSEs</span>
+            <span class="section-count" id="ocpiCount">0 EVSEs</span>
           </div>
-          <div id="ocpiSection">
-            <div class="empty"><div class="empty-icon">📡</div>Ingen OCPI data endnu</div>
-          </div>
+          <table class="data-table" id="ocpiTable">
+            <thead>
+              <tr>
+                <th>EVSE ID</th>
+                <th>Ref</th>
+                <th>Status</th>
+                <th>Connector</th>
+                <th>Køretøj</th>
+                <th>kWh</th>
+                <th>SOC</th>
+              </tr>
+            </thead>
+            <tbody id="ocpiBody">
+              <tr><td colspan="7" class="empty">Ingen OCPI data endnu</td></tr>
+            </tbody>
+          </table>
         </div>
 
         <!-- Active sessions -->
         <div class="section">
-          <div class="section-header">
-            <span class="section-title">⚡ Aktive sessioner</span>
+          <div class="section-head">
+            <span class="section-title">Aktive sessioner</span>
             <span class="section-count" id="activeCount">0</span>
           </div>
           <div id="activeSessions">
-            <div class="empty">
-              <div class="empty-icon">🔋</div>
-              Ingen aktive sessioner
-            </div>
+            <div class="empty">Ingen aktive sessioner</div>
           </div>
         </div>
 
@@ -657,257 +248,231 @@
       <!-- Right column -->
       <div class="right-col">
 
-        <!-- Session history -->
+        <!-- kWh mini chart -->
         <div class="section">
-          <div class="section-header">
-            <span class="section-title">📋 Historik</span>
-            <span class="section-count" id="historyCount">0 sessioner</span>
+          <div class="section-head">
+            <span class="section-title">kWh — Aktive sessioner</span>
           </div>
-          <div id="sessionHistory">
-            <div class="empty">
-              <div class="empty-icon">📭</div>
-              Ingen historik endnu
-            </div>
+          <div class="mini-chart-wrap">
+            <canvas id="kwhChart" height="140"></canvas>
+          </div>
+        </div>
+
+        <!-- History -->
+        <div class="section">
+          <div class="section-head">
+            <span class="section-title">Historik</span>
+            <span class="section-count" id="histCount">0 sessioner</span>
+          </div>
+          <div id="historyList" class="scrollable">
+            <div class="empty">Ingen historik endnu</div>
           </div>
         </div>
 
       </div>
     </div>
-  </main>
+  </div>
 </div>
-
-<div class="toast" id="toast"></div>
 
 <script>
 const API = window.location.origin;
-let prevData = null;
+let kwhChart = null;
+let _ocpiSessions = [];
 
-function statusClass(s) {
-  s = (s || '').toLowerCase();
-  if (s === 'available') return 'available';
-  if (s === 'charging' || s === 'occupied') return 'charging';
-  if (s === 'preparing' || s === 'finishing' || s === 'suspendedevse' || s === 'suspendedev') return 'preparing';
-  if (s === 'unavailable' || s === 'faulted') return 'unavailable';
-  return 'available';
+function statusClass(s){
+  s=(s||'').toLowerCase();
+  if(s==='charging'||s==='occupied') return 'charging';
+  if(s==='available') return 'available';
+  if(s==='suspendedev'||s==='suspendedevse'||s==='preparing'||s==='finishing') return 'suspended';
+  if(s==='unavailable'||s==='faulted'||s==='outoforder') return 'unavailable';
+  return 'offline';
 }
 
-function statusLabel(s) {
-  const labels = {
-    Available: 'Ledig', Charging: 'Lader', Occupied: 'Optaget',
-    Preparing: 'Klar', Finishing: 'Afslutter', Unavailable: 'Utilgængelig',
-    Faulted: 'Fejl', Reserved: 'Reserveret'
-  };
-  return labels[s] || s;
+function statusLabel(s){
+  const m={Available:'Ledig',Charging:'Lader',Occupied:'Optaget',Preparing:'Klar',
+    Finishing:'Afslutter',Unavailable:'Utilgængelig',Faulted:'Fejl',
+    SuspendedEV:'Suspenderet',SuspendedEVSE:'Suspenderet',OUTOFORDER:'Out of order'};
+  return m[s]||s;
 }
 
-function formatTime(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return d.toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' });
+function fmtTime(iso){
+  if(!iso) return '—';
+  return new Date(iso).toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
 }
 
-function formatDuration(startIso) {
-  if (!startIso) return '';
-  const diff = Date.now() - new Date(startIso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 60) return `${m} min`;
-  const h = Math.floor(m / 60);
-  return `${h}t ${m % 60}m`;
+function fmtDuration(iso){
+  if(!iso) return '';
+  const m=Math.floor((Date.now()-new Date(iso))/60000);
+  if(m<60) return `${m} min`;
+  return `${Math.floor(m/60)}t ${m%60}m`;
 }
 
-function toast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 3000);
-}
+function renderChargers(ladere){
+  const el=document.getElementById('chargerList');
+  document.getElementById('ocppCount').textContent=`${ladere.length} online`;
+  if(!ladere.length){el.innerHTML='<div class="empty">Ingen OCPP ladere forbundet</div>';return;}
 
-async function sendCmd(url, msg) {
-  try {
-    const r = await fetch(url);
-    const d = await r.json();
-    toast(d.besked || d.error || 'Sendt');
-  } catch { toast('Fejl — er serveren kørende?'); }
-}
-
-function renderChargers(ladere) {
-  const el = document.getElementById('chargerList');
-  document.getElementById('chargerCount').textContent = `${ladere.length} online`;
-
-  if (!ladere.length) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">🔌</div>Ingen ladere forbundet endnu</div>`;
-    return;
-  }
-
-  el.innerHTML = ladere.map(l => {
-    const connectors = l.connectors || {};
-    const allConnectors = [];
-    for (const [evseId, conns] of Object.entries(connectors)) {
-      for (const [connId, status] of Object.entries(conns)) {
-        if (connId === '0') continue; // skip virtual connector 0
-        allConnectors.push({ evseId, connId, status });
+  let chargingCount=0;
+  el.innerHTML=ladere.map(l=>{
+    const conns=l.connectors||{};
+    const allConns=[];
+    for(const[eid,cs] of Object.entries(conns)){
+      for(const[cid,st] of Object.entries(cs)){
+        if(cid==='0') continue;
+        allConns.push({eid,cid,st});
+        if(st==='Charging'||st==='Occupied') chargingCount++;
       }
     }
-
-    const isCharging = allConnectors.some(c => c.status === 'Charging' || c.status === 'Occupied');
-
+    const connBadges=allConns.map(c=>`<div class="conn-badge ${statusClass(c.st)}" title="${c.st}">${c.cid}</div>`).join('');
     return `
-    <div class="charger-card">
-      <div class="charger-header">
-        <div>
-          <div class="charger-id">${l.id}</div>
-          <div class="charger-meta">${l.vendor} ${l.model} · fw ${l.firmware || '?'}</div>
-        </div>
-        <div class="charger-status online">
-          <div style="width:6px;height:6px;border-radius:50%;background:currentColor;${isCharging ? 'animation:pulse 1s infinite' : ''}"></div>
-          ${isCharging ? 'Lader' : 'Online'}
-        </div>
+    <div class="charger-row">
+      <div class="charger-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M5 18H3a2 2 0 01-2-2V8a2 2 0 012-2h3.19M15 6h2a2 2 0 012 2v8a2 2 0 01-2 2h-2M9 2v4M15 2v4M9 6h6v4l-2 2H11L9 10V6z"/>
+        </svg>
       </div>
-
-      <div class="connectors">
-        ${allConnectors.map(c => `
-          <div class="connector ${statusClass(c.status)}" title="EVSE ${c.evseId} / Connector ${c.connId}">
-            <div class="connector-dot"></div>
-            C${c.connId} — ${statusLabel(c.status)}
-          </div>
-        `).join('')}
-        ${allConnectors.length === 0 ? '<div style="color:var(--text3);font-size:12px">Ingen connector data endnu</div>' : ''}
+      <div>
+        <div class="charger-id">${l.id}</div>
+        <div class="charger-meta">${l.vendor||''} ${l.model||''} · fw ${l.firmware||'?'} · ${l.ocppVersion||'ocpp1.6'}</div>
+        <div class="connectors-wrap">${connBadges}</div>
       </div>
-
       <div class="charger-actions">
-        <button class="btn btn-start" onclick="sendCmd('${API}/start/${l.id}/1', 'Start sendt')">
-          ▶ Start session
-        </button>
-        <button class="btn btn-stop" ${!l.aktiv_transaktion ? 'disabled' : ''} onclick="sendCmd('${API}/stop/${l.id}', 'Stop sendt')">
-          ■ Stop session
-        </button>
+        <button class="btn-sm" onclick="fetch('${API}/start/${l.id}/1').then(r=>r.json()).then(d=>alert(d.besked||d.error))">Start</button>
+        <button class="btn-sm danger" ${!l.aktiv_transaktion?'disabled':''} onclick="fetch('${API}/stop/${l.id}').then(r=>r.json()).then(d=>alert(d.besked||d.error))">Stop</button>
       </div>
     </div>`;
   }).join('');
+  document.getElementById('statCharging').textContent=chargingCount;
 }
 
-function renderSessions(sessioner) {
-  const active = sessioner.filter(s => s.status === 'ACTIVE');
-  const completed = sessioner.filter(s => s.status === 'COMPLETED');
+function renderOcpi(evses,sessions){
+  _ocpiSessions=sessions||[];
+  document.getElementById('ocpiCount').textContent=`${evses.length} EVSEs`;
+  document.getElementById('statEvses').textContent=evses.length;
 
-  // Active
-  const activeEl = document.getElementById('activeSessions');
-  document.getElementById('activeCount').textContent = active.length;
-  if (!active.length) {
-    activeEl.innerHTML = `<div class="empty"><div class="empty-icon">🔋</div>Ingen aktive sessioner</div>`;
-  } else {
-    activeEl.innerHTML = active.map(s => `
-      <div class="session-item">
-        <div>
-          <div class="session-id">${s.id}</div>
-          <div class="session-info">${s.chargerId} · EVSE ${s.evse || '?'}</div>
-          <div class="session-meta">Start ${formatTime(s.start)} · ${formatDuration(s.start)}</div>
-          <div class="session-status-badge active">⚡ LADER</div>
-        </div>
-        <div class="session-kwh">${(s.kWh || 0).toFixed(1)}<br><span>kWh</span></div>
+  let totalKwh=0;
+  sessions.filter(s=>s.status==='ACTIVE').forEach(s=>totalKwh+=s.kwh||0);
+  document.getElementById('statKwh').textContent=totalKwh.toFixed(1);
+
+  const tbody=document.getElementById('ocpiBody');
+  if(!evses.length){tbody.innerHTML='<tr><td colspan="7" class="empty">Ingen OCPI data</td></tr>';return;}
+
+  tbody.innerHTML=evses.map(e=>{
+    const sess=sessions.find(s=>s.evse_uid===e.uid&&s.status==='ACTIVE');
+    const vehicle=sess?.custom?.vehicle?.model||'';
+    const kwh=sess?(sess.kwh||0).toFixed(2):'';
+    const socDims=sess?.charging_periods?.flatMap(p=>p.dimensions)||[];
+    const socEntry=[...socDims].reverse().find(d=>d.type==='STATE_OF_CHARGE');
+    const soc=socEntry?`${socEntry.volume}%`:'';
+    const conn=e.connectors?.[0];
+    const kw=conn?(conn.max_electric_power/1000).toFixed(0)+'kW':'';
+    const sc=statusClass(e.status);
+    return `<tr>
+      <td style="font-family:monospace;font-size:11px">${e.evse_id||e.uid}</td>
+      <td style="color:#aaa">${e.physical_reference||'—'}</td>
+      <td><span class="pill ${sc}"><span class="pill-dot"></span>${statusLabel(e.status)}</span></td>
+      <td style="color:#888">CCS2 ${kw}</td>
+      <td style="font-weight:${vehicle?'500':'400'};color:${vehicle?'#1a1a18':'#aaa'}">${vehicle||'—'}</td>
+      <td style="font-weight:500">${kwh?kwh+' kWh':'—'}</td>
+      <td style="color:#1A7A3C;font-weight:500">${soc||'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderSessions(sessioner){
+  const active=sessioner.filter(s=>s.status==='ACTIVE');
+  const completed=sessioner.filter(s=>s.status==='COMPLETED');
+  document.getElementById('activeCount').textContent=active.length;
+
+  const el=document.getElementById('activeSessions');
+  if(!active.length){el.innerHTML='<div class="empty">Ingen aktive sessioner</div>';}
+  else{
+    el.innerHTML=active.map(s=>`
+    <div class="session-item">
+      <div>
+        <div class="session-evse">${s.chargerId} · EVSE ${s.evse||'?'}</div>
+        <div class="session-vehicle">Aktiv session</div>
+        <div class="session-time">Start ${fmtTime(s.start)} · ${fmtDuration(s.start)}</div>
       </div>
-    `).join('');
+      <div>
+        <div class="session-kwh">${(s.kWh||0).toFixed(2)}<span class="session-kwh-unit"> kWh</span></div>
+      </div>
+    </div>`).join('');
   }
 
   // History
-  const histEl = document.getElementById('sessionHistory');
-  document.getElementById('historyCount').textContent = `${completed.length} sessioner`;
-  if (!completed.length) {
-    histEl.innerHTML = `<div class="empty"><div class="empty-icon">📭</div>Ingen historik endnu</div>`;
-  } else {
-    const sorted = [...completed].sort((a, b) => new Date(b.slut) - new Date(a.slut));
-    histEl.innerHTML = sorted.slice(0, 20).map(s => `
-      <div class="history-item">
-        <div>
-          <div class="history-charger">${s.chargerId} · EVSE ${s.evse || '?'}</div>
-          <div class="history-time">${formatTime(s.start)} → ${formatTime(s.slut)}</div>
-        </div>
-        <div class="history-kwh">${(s.kWh || 0).toFixed(2)} <span style="font-size:10px;color:var(--text3)">kWh</span></div>
+  const histEl=document.getElementById('historyList');
+  document.getElementById('histCount').textContent=`${completed.length} sessioner`;
+  if(!completed.length){histEl.innerHTML='<div class="empty">Ingen historik endnu</div>';}
+  else{
+    const sorted=[...completed].sort((a,b)=>new Date(b.slut)-new Date(a.slut));
+    histEl.innerHTML=sorted.slice(0,20).map(s=>`
+    <div class="hist-item">
+      <div>
+        <div class="hist-evse">${s.chargerId} · EVSE ${s.evse||'?'}</div>
+        <div class="hist-time">${fmtTime(s.start)} → ${fmtTime(s.slut)}</div>
       </div>
-    `).join('');
+      <div class="hist-kwh">${(s.kWh||0).toFixed(2)} kWh</div>
+    </div>`).join('');
   }
-
-  // Stats
-  document.getElementById('statOnline').textContent = document.querySelectorAll ? '—' : '0';
-  document.getElementById('statActive').textContent = active.length;
-  document.getElementById('statKwh').textContent = active.reduce((s, x) => s + (x.kWh || 0), 0).toFixed(1);
-  document.getElementById('statCompleted').textContent = completed.length;
 }
 
-async function refresh() {
-  try {
-    const r = await fetch(`${API}/status`);
-    const data = await r.json();
+function renderKwhChart(evses,sessions){
+  const activeSessions=sessions.filter(s=>s.status==='ACTIVE');
+  const canvas=document.getElementById('kwhChart');
+  const labels=activeSessions.length?activeSessions.map(s=>{
+    const evse=evses.find(e=>e.uid===s.evse_uid);
+    return evse?.evse_id||s.evse_uid||s.id?.substring(0,8)||'?';
+  }):['Ingen data'];
+  const values=activeSessions.length?activeSessions.map(s=>+(s.kwh||0).toFixed(2)):[0];
 
-    const ocppLadere = data.ocpp?.ladere || [];
-    const ocppSessioner = data.ocpp?.sessioner || [];
-    const ocpiEvses = data.ocpi?.lokationer || [];
+  if(kwhChart){kwhChart.destroy();}
+  kwhChart=new Chart(canvas,{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{
+        data:values,
+        backgroundColor:'#EAF5EE',
+        borderColor:'#1A7A3C',
+        borderWidth:1.5,
+        borderRadius:4,
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{display:false},ticks:{font:{size:10},color:'#aaa'}},
+        y:{grid:{color:'#f0f0ec'},ticks:{font:{size:10},color:'#aaa'},beginAtZero:true}
+      }
+    }
+  });
+}
 
-    const totalOcpiCharging = ocpiEvses.filter(e => e.status === 'CHARGING').length;
-    const totalActive = ocppSessioner.filter(s => s.status === 'ACTIVE').length;
-    const totalKwh = ocppSessioner.filter(s => s.status === 'ACTIVE').reduce((s, x) => s + (x.kWh || 0), 0);
-    const totalCompleted = ocppSessioner.filter(s => s.status === 'COMPLETED').length;
+async function refresh(){
+  try{
+    const r=await fetch(`${API}/status`);
+    const data=await r.json();
+    const ocppLadere=data.ocpp?.ladere||[];
+    const ocppSessioner=data.ocpp?.sessioner||[];
+    const ocpiEvses=data.ocpi?.lokationer||[];
+    const ocpiSessioner=data.ocpi?.sessioner||[];
 
-    document.getElementById('statOnline').textContent = ocppLadere.length;
-    document.getElementById('statActive').textContent = totalActive || totalOcpiCharging;
-    document.getElementById('statKwh').textContent = totalKwh.toFixed(1);
-    document.getElementById('statCompleted').textContent = totalCompleted;
-    document.getElementById('ocpiCount').textContent = ocpiEvses.length;
+    document.getElementById('statOnline').textContent=ocppLadere.length;
+    document.getElementById('lastUpdate').textContent=new Date().toLocaleTimeString('da-DK');
 
     renderChargers(ocppLadere);
-    window._ocpiSessions = data.ocpi?.sessioner || [];
-    renderOcpiEvses(ocpiEvses);
+    renderOcpi(ocpiEvses,ocpiSessioner);
     renderSessions(ocppSessioner);
-    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('da-DK');
-
-  } catch (e) {
-    document.getElementById('lastUpdate').textContent = 'Serverfejl';
+    renderKwhChart(ocpiEvses,ocpiSessioner);
+  }catch(e){
+    document.getElementById('lastUpdate').textContent='Fejl';
   }
-}
-
-function renderOcpiEvses(evses) {
-  const el = document.getElementById('ocpiSection');
-  if (!el) return;
-  if (!evses.length) {
-    el.innerHTML = '<div class="empty"><div class="empty-icon">📡</div>Ingen OCPI data endnu</div>';
-    return;
-  }
-  el.innerHTML = evses.map(e => {
-    const sc = statusClass(e.status);
-    const conn = e.connectors?.[0];
-    const kw = conn ? (conn.max_electric_power / 1000).toFixed(0) : '?';
-    const isCharging = e.status === 'CHARGING';
-    // Find matching session
-    const session = (window._ocpiSessions || []).find(s => s.evse_uid === e.uid);
-    const vehicle = session?.custom?.vehicle?.model || '';
-    const kwh = session?.kwh?.toFixed(2) || null;
-    const soc = session?.charging_periods?.flatMap(p => p.dimensions).find(d => d.type === 'STATE_OF_CHARGE')?.volume;
-    return `
-    <div class="charger-card">
-      <div class="charger-header">
-        <div>
-          <div class="charger-id">${e.evse_id || e.uid}</div>
-          <div class="charger-meta">CCS2 · ${kw} kW DC${vehicle ? ' · ' + vehicle : ''}</div>
-        </div>
-        <div class="charger-status online">
-          <div style="width:6px;height:6px;border-radius:50%;background:currentColor;${isCharging ? 'animation:pulse 1s infinite' : ''}"></div>
-          ${isCharging ? 'Lader' : e.status === 'AVAILABLE' ? 'Ledig' : e.status === 'OUTOFORDER' ? 'Offline' : e.status}
-        </div>
-      </div>
-      <div class="connectors">
-        <div class="connector ${sc}">
-          <div class="connector-dot"></div>
-          ${e.status}
-        </div>
-        ${kwh ? `<div class="connector available"><div class="connector-dot"></div>${kwh} kWh</div>` : ''}
-        ${soc != null ? `<div class="connector ${soc >= 100 ? 'available' : 'charging'}"><div class="connector-dot"></div>SOC ${soc}%</div>` : ''}
-      </div>
-    </div>`;
-  }).join('');
 }
 
 refresh();
-setInterval(refresh, 3000);
+setInterval(refresh,5000);
 </script>
 </body>
 </html>
