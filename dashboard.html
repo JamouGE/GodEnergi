@@ -276,6 +276,28 @@ a{color:inherit;text-decoration:none}
 
 <script>
 const API = window.location.origin;
+
+function showToast(msg, ok=true){
+  let t=document.getElementById('toast');
+  if(!t){t=document.createElement('div');t.id='toast';document.body.appendChild(t);
+    Object.assign(t.style,{position:'fixed',bottom:'24px',right:'24px',padding:'10px 16px',
+    borderRadius:'8px',fontSize:'12px',fontWeight:'500',zIndex:'9999',
+    transition:'all 0.3s',transform:'translateY(60px)',opacity:'0',fontFamily:'Inter,sans-serif'});}
+  t.textContent=msg;
+  t.style.background=ok?'#EAF5EE':'#FEF0EA';
+  t.style.color=ok?'#1A7A3C':'#E8521A';
+  t.style.border=`1px solid ${ok?'#1A7A3C':'#E8521A'}`;
+  t.style.transform='translateY(0)';t.style.opacity='1';
+  clearTimeout(t._t);t._t=setTimeout(()=>{t.style.transform='translateY(60px)';t.style.opacity='0';},3000);
+}
+
+async function cmdFetch(url, successMsg){
+  try{
+    const r=await fetch(url);
+    const d=await r.json();
+    showToast(d.besked||successMsg, !d.error);
+  }catch(e){showToast('Fejl — prøv igen',false);}
+}
 let kwhChart = null;
 let _ocpiSessions = [];
 
@@ -337,8 +359,10 @@ function renderChargers(ladere){
         <div class="connectors-wrap">${connBadges}</div>
       </div>
       <div class="charger-actions">
-        <button class="btn-sm" onclick="fetch('${API}/start/${l.id}/1').then(r=>r.json()).then(d=>alert(d.besked||d.error))">Start</button>
-        <button class="btn-sm danger" ${!l.aktiv_transaktion?'disabled':''} onclick="fetch('${API}/stop/${l.id}').then(r=>r.json()).then(d=>alert(d.besked||d.error))">Stop</button>
+        <button class="btn-sm" onclick="cmdFetch('${API}/start/${l.id}/1','Start sendt')">Start</button>
+        <button class="btn-sm danger" ${!l.aktiv_transaktion?'disabled':''} onclick="cmdFetch('${API}/stop/${l.id}','Stop sendt')">Stop</button>
+        <button class="btn-sm" onclick="cmdFetch('${API}/restart/${l.id}/soft','Soft restart sendt')">Restart</button>
+        <button class="btn-sm danger" onclick="if(confirm('Hard restart?')) cmdFetch('${API}/restart/${l.id}/hard','Hard restart sendt')">Hard reset</button>
       </div>
     </div>`;
   }).join('');
